@@ -91,8 +91,9 @@ function getRandomDelay() {
   return Math.random() * (60000 - 30000) + 30000;
 }
 
-function getRandomNumber(min, max) {
-  return Math.random() * (max - min) + min;
+function getRandomNumber(min, max, decimals = 4) {
+  const random = Math.random() * (max - min) + min;
+  return parseFloat(random.toFixed(decimals));
 }
 
 function updateLogs() {
@@ -206,7 +207,7 @@ async function getAmountOut(amountIn, path) {
     const amounts = await routerContract.getAmountsOut(amountIn, path);
     return amounts[amounts.length - 1];
   } catch (error) {
-    addLog(`Gagal / amountOut: ${error.message}`, "error");
+    addLog(`Gagal menghitung amountOut: ${error.message}`, "error");
     return ethers.parseEther("0");
   }
 }
@@ -268,8 +269,11 @@ async function autoSwapSttUsdtg() {
     const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
     const sttBalance = parseFloat(walletInfo.balanceStt);
     const usdtgBalance = parseFloat(walletInfo.balanceUsdtg);
-    const sttAmount = getRandomNumber(0.01, 0.05);
-    const usdtgAmount = getRandomNumber(0.04, 0.21);
+    const sttAmount = getRandomNumber(0.01, 0.05, 4);
+    const usdtgAmount = getRandomNumber(0.04, 0.21, 4);
+
+    addLog(`Arah swap saat ini: ${lastSwapDirectionSttUsdtg}`, "debug");
+    addLog(`Saldo: STT=${sttBalance}, USDT.g=${usdtgBalance}`, "debug");
 
     let receipt;
 
@@ -284,7 +288,7 @@ async function autoSwapSttUsdtg() {
       const amountOutMin = await getAmountOut(amountIn, path);
       const slippage = amountOutMin * BigInt(95) / BigInt(100);
 
-      addLog(`Melakukan swap ${sttAmount} STT ➯ USDTg`, "swap");
+      addLog(`Melakukan swap ${sttAmount} STT ➯ USDT.g`, "swap");
 
       receipt = await executeSwapWithNonceRetry(async (nonce) => {
         return await routerContract.swapExactETHForTokens(
@@ -300,11 +304,12 @@ async function autoSwapSttUsdtg() {
         addLog(`Swap Berhasil. Hash: ${receipt.hash}`, "success");
         await reportTransaction();
         lastSwapDirectionSttUsdtg = "STT_TO_USDTG";
+        addLog(`Arah swap diubah ke: ${lastSwapDirectionSttUsdtg}`, "debug");
         return true;
       }
     } else {
       if (usdtgBalance < usdtgAmount) {
-        addLog(`Saldo USDTg tidak cukup: ${usdtgBalance} < ${usdtgAmount}`, "warning");
+        addLog(`Saldo USDT.g tidak cukup: ${usdtgBalance} < ${usdtgAmount}`, "warning");
         return false;
       }
 
@@ -318,7 +323,7 @@ async function autoSwapSttUsdtg() {
       const approved = await approveToken(USDTG_ADDRESS, usdtgAmount);
       if (!approved) return false;
 
-      addLog(`Melakukan swap ${usdtgAmount} USDTg ➯ STT`, "swap");
+      addLog(`Melakukan swap ${usdtgAmount} USDT.g ➯ STT`, "swap");
 
       receipt = await executeSwapWithNonceRetry(async (nonce) => {
         return await routerContract.swapExactTokensForETH(
@@ -335,6 +340,7 @@ async function autoSwapSttUsdtg() {
         addLog(`Swap Berhasil. Hash: ${receipt.hash}`, "success");
         await reportTransaction();
         lastSwapDirectionSttUsdtg = "USDTG_TO_STT";
+        addLog(`Arah swap diubah ke: ${lastSwapDirectionSttUsdtg}`, "debug");
         return true;
       }
     }
@@ -351,8 +357,11 @@ async function autoSwapSttNia() {
     const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
     const sttBalance = parseFloat(walletInfo.balanceStt);
     const niaBalance = parseFloat(walletInfo.balanceNia);
-    const sttAmount = getRandomNumber(0.01, 0.05);
-    const niaAmount = getRandomNumber(2, 10);
+    const sttAmount = getRandomNumber(0.01, 0.05, 4);
+    const niaAmount = getRandomNumber(2, 10, 4);
+
+    addLog(`Arah swap saat ini: ${lastSwapDirectionSttNia}`, "debug");
+    addLog(`Saldo: STT=${sttBalance}, NIA=${niaBalance}`, "debug");
 
     let receipt;
 
@@ -383,6 +392,7 @@ async function autoSwapSttNia() {
         addLog(`Swap Berhasil. Hash: ${receipt.hash}`, "success");
         await reportTransaction();
         lastSwapDirectionSttNia = "STT_TO_NIA";
+        addLog(`Arah swap diubah ke: ${lastSwapDirectionSttNia}`, "debug");
         return true;
       }
     } else {
@@ -418,6 +428,7 @@ async function autoSwapSttNia() {
         addLog(`Swap Berhasil. Hash: ${receipt.hash}`, "success");
         await reportTransaction();
         lastSwapDirectionSttNia = "NIA_TO_STT";
+        addLog(`Arah swap diubah ke: ${lastSwapDirectionSttNia}`, "debug");
         return true;
       }
     }
@@ -483,7 +494,7 @@ async function runAutoSwap(pair, autoSwapFunction, lastSwapDirection) {
     mainMenu.setItems(getMainMenuItems());
     somniaExchangeSubMenu.setItems(getSomniaExchangeMenuItems());
     safeRender();
-    addLog(`Somnia Exchange: Auto Swap ${pair} selesai.`, "swap");
+    addLog(`Somnia Exchange: Auto Swap untuk ${pair} selesai.`, "swap");
   });
 }
 
